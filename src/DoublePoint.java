@@ -1,4 +1,5 @@
 
+// A class to represent point with coordinates taking values of doubles
 public class DoublePoint {
 
 	public double x;

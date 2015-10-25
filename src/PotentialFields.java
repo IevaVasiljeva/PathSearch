@@ -40,10 +40,10 @@ public class PotentialFields
 	
 	private final double wheelSize = 10;
 	private final double wheelDistance = 1;
-	private final double startWheelSpeed = 1;
-	private final double maxSpeedChange = 4;
-	private final double maxSpeed = 8;
-	private final double minSpeed = 0.00001;
+	private final double startWheelSpeed = 3;
+	private final double maxSpeedChange = 1.5;
+	private final double maxSpeed = 6;
+	private final double minSpeed = 0.01;
 	
 	
 	private ArrayList<Renderable>obstacles;
@@ -477,14 +477,15 @@ public class PotentialFields
 			gui.draw(r);
 			gui.draw(pp);
 		}
-		for(IntPoint p :rob.getSamplePoints()) {
+				
+		for(DPFMovablePoint p :((DynamicPFRobot)rob).getDiffDrivePoints()) {
 			RenderablePolyline r = new RenderablePolyline();
 			r.addPoint(rob.getPosition().x, rob.getPosition().y);
-			r.addPoint(p.x, p.y);
+			r.addPoint(rob.getPosition().x+6*(int)p.location.x, rob.getPosition().y + 6*(int)p.location.y);
 			r.setProperties(Color.BLUE, 3f);
-			RenderablePoint pp = new RenderablePoint(p.x, p.y);
+			RenderablePoint pp = new RenderablePoint(rob.getPosition().x+6*(int)p.location.x, rob.getPosition().y + 6*(int)p.location.y);
 			pp.setProperties(Color.BLUE, 6f);
-			gui.draw(r);
+//			gui.draw(r);
 			gui.draw(pp);
 		}
 	}
