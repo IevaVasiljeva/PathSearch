@@ -1,3 +1,4 @@
+import renderables.Renderable;
 
 // A class to represent a point that a differential drive model can lead to 
 public class DPFMovablePoint {
@@ -9,6 +10,8 @@ public class DPFMovablePoint {
 	// The wheelspeeds that are required to result in this location
 	double leftWSpeed;
 	double rightWSpeed;
+	// The visualisation of the path to the goal
+	Renderable path;
 	
 	public DPFMovablePoint(double x, double y, double heading, double leftSpeed, double rightSpeed) {
 		location = new DoublePoint(x, y);

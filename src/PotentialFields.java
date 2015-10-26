@@ -466,6 +466,8 @@ public class PotentialFields
 	 * */
 	private void drawRobot(PotentialFieldsRobot rob)  {
 		gui.draw(rob.robotPoint);
+		
+		gui.draw(((DynamicPFRobot)rob).path);
 
 		for(IntPoint p :rob.getSensorablePoints()) {
 			RenderablePolyline r = new RenderablePolyline();

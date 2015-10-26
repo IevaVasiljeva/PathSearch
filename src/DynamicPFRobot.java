@@ -1,3 +1,4 @@
+import java.awt.Color;
 import java.awt.geom.Line2D;
 import java.text.spi.DateFormatProvider;
 import java.util.ArrayList;
@@ -6,6 +7,8 @@ import java.util.WeakHashMap;
 
 import geometry.IntPoint;
 import renderables.Renderable;
+import renderables.RenderableOval;
+import renderables.RenderablePolyline;
 
 public class DynamicPFRobot extends PotentialFieldsRobot {
 
@@ -18,6 +21,8 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 	private final double maxSpeed;
 	private final double minSpeed;
 	private final int numberOfSamples = 7;
+	
+	Renderable path;
 
 	//private double heading;
 
@@ -32,7 +37,6 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		this.maxSpeedChange = maxSpeedChange;
 		this.maxSpeed = maxSpeed;
 		this.minSpeed = minSpeed;
-		heading = 5;
 	}	
 
 	// Chooses a point from its sample range, & then chooses a diff drive point nearest to it
@@ -58,6 +62,9 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 
 		System.out.println("Move x diff: " + newPoint.location.x);
 		System.out.println("Move y diff: " + newPoint.location.y);
+		
+		// Set the estimated path image
+		this.path = newPoint.path;
 
 		// Update the robot location with values rounded to the nearest int
 		coords.x += Math.round(newPoint.location.x);
@@ -170,28 +177,18 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 
 		List<DPFMovablePoint>moves = getDiffDrivePoints();
 
-		//Value of moves is a function of distance from goal & distance from detected objects
-		double[] moveValues = new double[moves.size()];
-
 		DPFMovablePoint bestPoint = moves.get(0);
 		//		double bestScore = evaluate(bestPoint.location, goal);
-		double bestScore = getArcGoalEstimate(bestPoint, goal);
+		double bestScore = getSquareGoalEsitamte(bestPoint, goal);
 
 		for(DPFMovablePoint currentPoint: moves) {
-			//			double currentScore = evaluate(currentPoint.location, goal);
-
-			//			DoublePoint p2 = new DoublePoint(6, -2);
-			//			IntPoint p3 = new IntPoint(5,5);
-			//			IntPoint p1 = new IntPoint(2, -4);
-			//			
-			//			getArcGoalEstimate(p2, p3, p1);
-
-			double currentScore = getArcGoalEstimate(currentPoint, goal);
+			double currentScore = getSquareGoalEsitamte(currentPoint, goal);
 
 			if (currentScore < bestScore) {
 				bestPoint = currentPoint;
 				bestScore = currentScore;
 			}
+			
 		}
 
 		return bestPoint; //Return the lowest valued move
@@ -201,17 +198,33 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 
 
 	//Estimates the distance to the goal using Euclidean straight line
-	private double getLinearGoalEstimate(DoublePoint point, IntPoint goal) {
-		DoublePoint move = new DoublePoint(coords.x+point.x, coords.y+point.y);
+	private double getLinearGoalEstimate(DPFMovablePoint point, IntPoint goal) {
+		DoublePoint move = new DoublePoint(coords.x+point.location.x, coords.y+point.location.y);
 		double goalDist = (distance(move, goal));
-		return goalDist;
+		
+		// Find a visualisation for the estimated path to the goal
+		RenderablePolyline path = new RenderablePolyline();
+		path.addPoint(this.goal.x, this.goal.y);
+		path.addPoint(coords.x + (int)Math.round(point.location.x), coords.y + (int)Math.round(point.location.y));
+		path.setProperties(Color.ORANGE, 1f);
+		point.path = path;
+		
+		return getObstaclePot(move) + goalDist;
 	}
 
 	//Estimates the distance to the goal using Euclidean squared distance
-	private double getSquareGoalEsitamte(DoublePoint point, IntPoint goal) {
-		DoublePoint move = new DoublePoint(coords.x+point.x, coords.y+point.y);
+	private double getSquareGoalEsitamte(DPFMovablePoint point, IntPoint goal) {
+		DoublePoint move = new DoublePoint(coords.x+point.location.x, coords.y+point.location.y);
 		double goalDist = Math.pow((distance(move, goal)), 2);
-		return goalDist;
+		
+		// Find a visualisation for the estimated path to the goal
+		RenderablePolyline path = new RenderablePolyline();
+		path.addPoint(this.goal.x, this.goal.y);
+		path.addPoint(coords.x + (int)Math.round(point.location.x), coords.y + (int)Math.round(point.location.y));
+		path.setProperties(Color.ORANGE, 1f);
+		point.path = path;
+		
+		return getObstaclePot(move) + goalDist;
 	}
 
 	protected static double distance(DoublePoint a, IntPoint b) {
@@ -221,24 +234,13 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 	//Estimates the distance to the goal using Euclidean squared distance
 	// TODO Take the heading of the double point?
 	private double getArcGoalEstimate(DPFMovablePoint point, IntPoint goal) {
+		
+		goal = this.goal;
+		
 		DoublePoint pointLoc = new DoublePoint(coords.x + point.location.x, coords.y + point.location.y);
 
 		double nextByHeadingX = pointLoc.x + Math.cos(point.heading)*15;
 		double nextByHeadingY = pointLoc.y + Math.sin(point.heading)*15;
-
-		//		double firstSlope = (goal.y - pointLoc.y)/(goal.x - pointLoc.x);
-		//		double secondSlope = (pointLoc.y - coords.y)/(pointLoc.x - coords.x);
-		//		
-		//		double centreX = (firstSlope*secondSlope*(coords.y-goal.y) + firstSlope*(pointLoc.x+coords.x)-secondSlope*(goal.x+pointLoc.x))/(2*(firstSlope-secondSlope));
-		//		double centreY = -(1/secondSlope)*(centreX-(pointLoc.x + coords.x)/2) + (pointLoc.y + coords.y)/2;
-		//		
-		//		double radius = Math.sqrt(Math.pow(pointLoc.x - centreX, 2) + Math.pow(pointLoc.y - centreY, 2));
-		//		
-		//		double slopeCurrCentre = (goal.y - centreY)/(goal.x - centreX);
-		//		double slopeGoalCentre = (coords.y - centreY)/(coords.x - centreX);
-		//		double angleFirstSlope = Math.atan(slopeCurrCentre);
-		//		double angleSecondSlope = Math.atan(slopeGoalCentre);
-
 
 		double firstSlope = (goal.y - nextByHeadingY)/(goal.x - nextByHeadingX);
 		double secondSlope = (nextByHeadingY - pointLoc.y)/(nextByHeadingX - pointLoc.x);
@@ -246,19 +248,67 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		double centreX = (firstSlope*secondSlope*(pointLoc.y-goal.y) + firstSlope*(nextByHeadingX+pointLoc.x)-secondSlope*(goal.x+nextByHeadingX))/(2*(firstSlope-secondSlope));
 		double centreY = -(1/secondSlope)*(centreX-(nextByHeadingX + pointLoc.x)/2) + (nextByHeadingY + pointLoc.y)/2;
 
-		double radius = Math.sqrt(Math.pow(nextByHeadingX - centreX, 2) + Math.pow(nextByHeadingY - centreY, 2));
+		double radius = 2*Math.sqrt(Math.pow(nextByHeadingX - centreX, 2) + Math.pow(nextByHeadingY - centreY, 2));
 
-		double slopeCurrCentre = (goal.y - centreY)/(goal.x - centreX);
-		double slopeGoalCentre = (pointLoc.y - centreY)/(pointLoc.x - centreX);
+		double slopeGoalCentre = (goal.y - centreY)/(goal.x - centreX);
+		double slopeCurrCentre = (pointLoc.y - centreY)/(pointLoc.x - centreX);
 		double angleFirstSlope = Math.atan(slopeCurrCentre);
 		double angleSecondSlope = Math.atan(slopeGoalCentre);
-		double portionAngle = angleFirstSlope - angleSecondSlope; 
+		double portionAngle = Math.abs(angleFirstSlope - angleSecondSlope); 
 
 
 		double portion = Math.abs(portionAngle)*radius;
+		
+		//TODO figure out the angles if I can
+		int startAngle = (int)Math.round(Math.toDegrees(angleFirstSlope));
+		if (pointLoc.y-centreY < 0) {
+			startAngle += 180;
+		}
+		int endAngle = (int)Math.round(Math.toDegrees(angleSecondSlope));
+		if (goal.y-centreY < 0) {
+			startAngle += 180;
+		}
+		
+		if (startAngle<endAngle) {
+			int temp = startAngle;
+			startAngle = endAngle;
+			endAngle = temp;
+		}
+		
+		// Find a visualisation for the estimated path to the goal
+		RenderableOval path = new RenderableOval((int)Math.round(centreX), (int)Math.round(centreY), (int)Math.round(radius), (int)Math.round(radius));
+		
+//		RenderableOval path = new RenderableOval((int)Math.round(centreX), (int)Math.round(centreY), (int)Math.round(radius), (int)Math.round(radius));
+
+		
+		path.setProperties(Color.ORANGE, 1f, false);
+		point.path = path;
 
 		//Get distances to goal
-		return portion;
+		return getObstaclePot(pointLoc)+portion;
+	}
+	
+	
+	protected double getObstaclePot(DoublePoint p) {
+		//Get distances to goal & all visible objects
+		double[] obsDists = new double[visibleObstacles.size()];
+		for(int i=0;i<visibleObstacles.size();i++) {
+			//Distance is set to 0 if it's closer than the radius to the obstacle
+			obsDists[i] = (distance(p, visibleObstacles.get(i)) - radius) <= 0 ? 0 : (distance(p, visibleObstacles.get(i)) - radius) / 10;
+		}
+
+		//obs. field power is sum of all obstacles, and gets v. large as distance decreases and vice versa
+		double obsField = 0;
+		for(int i=0;i<visibleObstacles.size();i++) {
+			if(obsDists[i] <= 0) {
+				obsField = Double.MAX_VALUE;
+				break;
+			} else if (obsDists[i] > sensorRange) {
+				continue;
+			}
+			obsField += Math.pow(Math.E, -1 / ((sensorRange) - obsDists[i])) / (obsDists[i]);
+		}
+		return Math.pow(2*radius,2)*4750*obsField / (sensorDensity*sensorRange);
 	}
 
 }
