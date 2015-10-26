@@ -13,31 +13,32 @@ import renderables.RenderablePolyline;
 // A class for modelling a robot that would incorporate the mechanics behind potential fields
 public class DynamicPFRobot extends PotentialFieldsRobot {
 
+	// Were used for the previous diff drive sampling method
+//	private double leftWheelSpeed;
+//	private double rightWheelSpeed;
+	
 	private final double wheelDistance;
-	private double leftWheelSpeed;
-	private double rightWheelSpeed;
-	private final double maxSpeedChange;
 	private final double maxSpeed;
 	private final double minSpeed;
-	private final int numberOfSamples = 7;
+	private final int numberOfSamples = 10;
 	private final int wheelSize;
 	private final int measureMetric;
+	private int eveningOut;
+	int distanceTraveled;
 	
 	// Path of estimated movement
 	Renderable path;
 
 	// Initialising robot
 	public DynamicPFRobot(IntPoint startingLocation, IntPoint goalLocation, int radius,
-			int sensorRange, int sensorDensity, int goalRadius, List<Renderable> obstacles, double wheelDist, double startingSpeeds, double maxSpeedChange, double maxSpeed, double minSpeed, int wheelSize, int measureMetric) {
+			int sensorRange, int sensorDensity, int goalRadius, List<Renderable> obstacles, double wheelDist, double maxSpeed, double minSpeed, int wheelSize, int measureMetric) {
 		super(startingLocation, goalLocation, radius, sensorRange, sensorDensity, goalRadius, obstacles);
 		this.wheelDistance = wheelDist;
-		this.leftWheelSpeed = startingSpeeds;
-		this.rightWheelSpeed = startingSpeeds;
-		this.maxSpeedChange = maxSpeedChange;
 		this.maxSpeed = maxSpeed;
 		this.minSpeed = minSpeed;
 		this.wheelSize = wheelSize;
 		this.measureMetric = measureMetric;
+		distanceTraveled = 0;
 	}	
 
 	// Chooses a point from its sample range, and then chooses a point reachable by differential drive that is nearest to the chosen sample point
@@ -61,14 +62,13 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		this.path = newPoint.path;
 
 		// Update the robot location with values rounded to the nearest int
-		coords.x += Math.round(newPoint.location.x);
-		coords.y += Math.round(newPoint.location.y);
+		int newX = coords.x + (int)Math.round(newPoint.location.x);
+		int newY = coords.y + (int)Math.round(newPoint.location.y);
+		double pathTraversed = distance(coords, new IntPoint(newX, newY));
+		coords.x += newX;
+		coords.y += newY;
 		robotPoint.x = coords.x;
 		robotPoint.y = coords.y;
-
-		// Update wheel speeds
-		this.rightWheelSpeed = newPoint.rightWSpeed;
-		this.leftWheelSpeed = newPoint.leftWSpeed;
 
 		// Update the heading
 		this.heading = newPoint.heading;
@@ -93,21 +93,9 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		}
 
 		// Calculate the changes in the position of the robot and its new heading
-		double newX = distToICC*(Math.sin(heading)*Math.cos(rateOfRotRadians)+Math.sin(rateOfRotRadians)*Math.cos(heading) - Math.sin(heading));
-		double newY = distToICC*(Math.sin(heading)*Math.sin(rateOfRotRadians)-Math.cos(rateOfRotRadians)*Math.cos(heading) + Math.cos(heading));
+		double newX = 10*distToICC*(Math.sin(heading)*Math.cos(rateOfRotRadians)+Math.sin(rateOfRotRadians)*Math.cos(heading) - Math.sin(heading));
+		double newY = 10*distToICC*(Math.sin(heading)*Math.sin(rateOfRotRadians)-Math.cos(rateOfRotRadians)*Math.cos(heading) + Math.cos(heading));
 		double newAngle = mod(heading + rateOfRotRadians, 2*Math.PI);
-		
-		// If the changes are too small, increase them up till they are at least > 0
-		while (newX != 0 && Math.abs(newX) < 1  && newY != 0 && Math.abs(newY) < 1) {
-			newX*=10;
-			newY*=10;
-		}
-
-		// If the results are too big, decrease them till they are within ones
-		while (Math.abs(newX) >10 && Math.abs(newY) >10) {
-			newX/=10;
-			newY/=10;
-		}
 
 		// Return the results in the form of DPFMovablePoint
 		DPFMovablePoint results = new DPFMovablePoint(newX, newY, newAngle, rightWSpeed, leftWSpeed);
@@ -121,43 +109,24 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		// Points stored as DPFMovablePoint because additional information apart from the coordinates (wheel speeds, heading) is necessary
 		List<DPFMovablePoint> moveablePoints = new ArrayList<DPFMovablePoint>();
 
-		// Can change the speeds (and thus rotate) only within a particular range
-		double speedChangeOption = maxSpeedChange/numberOfSamples;
-
-		// Go through the possible speed changes and store the locations they would lead to
-		for (int i=0; i<=numberOfSamples; i++) {
-			double rightSpeed = rightWheelSpeed + speedChangeOption*i - maxSpeedChange/2;
-
-			// If speed change smaller than the allowed one, don't look at this option
-			if (rightSpeed<minSpeed) {
-				continue;
-			}
-
-			// If speed change bigger - break, as the rest of them will be even bigger
-			if (rightSpeed>maxSpeed) {
-				break;
-			}
-
-			for (int j=0; j<=numberOfSamples; j++) {
-				double leftSpeed = leftWheelSpeed + speedChangeOption*j - maxSpeedChange/2;
-
-				if (leftSpeed<minSpeed) {
-					continue;
-				}
-
-				if (leftSpeed>maxSpeed || (i+j)*speedChangeOption/2>maxSpeedChange) {
-					break;
-				}
-
+		// Look at all the possible wheel speed combinations
+		double rightSpeed = minSpeed;
+		double increment = maxSpeed/numberOfSamples;
+		
+		while (rightSpeed<maxSpeed) {
+			rightSpeed += increment;
+			double leftSpeed = minSpeed;
+			while (leftSpeed<maxSpeed) {
+				leftSpeed += increment;
 				DPFMovablePoint p2 = getPointTowards(rightSpeed, leftSpeed);
 
 				if (p2==null) {
 					continue;
 				}
-				
 				moveablePoints.add(p2);
 			}
 		}
+		
 		return moveablePoints;
 	}
 
@@ -173,6 +142,7 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		
 		double bestScore;
 		// Different metrics can be chosen for evaluation by the user
+		eveningOut = -1;
 		switch (measureMetric) {
 		case 1:
 			bestScore = getLinearGoalEstimate(bestPoint, goal);
@@ -215,13 +185,22 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		return bestPoint;
 
 	}
+	
+	
+	private double fracProgLinear(DPFMovablePoint point, IntPoint goal) {
+
+		double fracProg = (1 - (distanceTraveled)/(distanceTraveled+linearDistEstimate(point.location, goal)));
+		return getObstaclePot(point.location)*fracProg;
+	}
+	
 
 	//Estimates the distance to the goal using Euclidean straight line
 	private double getLinearGoalEstimate(DPFMovablePoint point, IntPoint goal) {
+		
+		DoublePoint moveResult = new DoublePoint(coords.x+point.location.x, coords.y+point.location.y);
 				
 		// Calculate the straight line distance
-		DoublePoint move = new DoublePoint(coords.x+point.location.x, coords.y+point.location.y);
-		double goalDist = (distance(move, goal));
+		double result = linearDistEstimate(moveResult, goal);
 		
 		// Find a visualisation for the estimated path to the goal
 		RenderablePolyline path = new RenderablePolyline();
@@ -229,16 +208,43 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		path.addPoint(coords.x + (int)Math.round(point.location.x), coords.y + (int)Math.round(point.location.y));
 		path.setProperties(Color.ORANGE, 1f);
 		point.path = path;
+
+		result = evenOutResult(result, moveResult);
 		
-		return getObstaclePot(move) + goalDist;
+		return result;
 	}
+	
+	// Calculate straight line distance to the goal
+	private double linearDistEstimate(DoublePoint point, IntPoint goal) {
+		// Calculate the straight line distance to the subgoal and from the subgoal to the goal
+		double goalDist = (distance(point, goal));
+		double subGoalToGoal = (distance(goal, this.goal));
+		return subGoalToGoal+goalDist;
+	}
+	
+	// Evens out the results so that obstacle repulsion has larger impact than goal attraction
+	private double evenOutResult(double goalPot, DoublePoint subGoal) {
+		double obstaclePot = getObstaclePot(subGoal);
+		if (eveningOut == -1) {
+			eveningOut = 0;
+			while (obstaclePot!=0 && obstaclePot*100<goalPot) {
+				goalPot = goalPot/10;
+				eveningOut++;
+			}
+		}
+		else {
+			goalPot = goalPot/Math.pow(10, eveningOut);
+		}
+		return goalPot + obstaclePot;
+	}
+	
 
 	//Estimates the distance to the goal using Euclidean squared distance
 	private double getSquareGoalEsitamte(DPFMovablePoint point, IntPoint goal) {
-				
+		DoublePoint moveResult = new DoublePoint(coords.x+point.location.x, coords.y+point.location.y);		
+		
 		// Calculate the straight line distance squared
-		DoublePoint move = new DoublePoint(coords.x+point.location.x, coords.y+point.location.y);
-		double goalDist = Math.pow((distance(move, goal)), 2);
+		double result = squareDistEstimate(moveResult, goal);
 		
 		// Find a visualisation for the estimated path to the goal
 		RenderablePolyline path = new RenderablePolyline();
@@ -247,7 +253,18 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		path.setProperties(Color.ORANGE, 1f);
 		point.path = path;
 		
-		return getObstaclePot(move) + goalDist;
+		result = evenOutResult(result, moveResult);
+		
+		return result;
+	}
+	
+	// Calculate the straight line distance squared	
+	private double squareDistEstimate(DoublePoint point, IntPoint goal) {
+		double goalDist = Math.pow((distance(point, goal)), 2);
+		
+		double subGoalToGoal = Math.pow((distance(goal, this.goal)), 2);
+		
+		return subGoalToGoal+goalDist;
 	}
 
 	// Calculates the distance using Pitaghor's theorem
@@ -282,33 +299,40 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 
 		double portion = Math.abs(portionAngle)*radius;
 		
-		//TODO figure out the angles if I can
 		int startAngle = (int)Math.round(Math.toDegrees(angleFirstSlope));
-		if (pointLoc.y-centreY < 0) {
-			startAngle += 180;
+		while (startAngle < 0) {
+			startAngle += 360;
 		}
 		int endAngle = (int)Math.round(Math.toDegrees(angleSecondSlope));
-		if (goal.y-centreY < 0) {
-			startAngle += 180;
+		while (endAngle < 0) {
+			endAngle += 360;
 		}
 		
-		if (startAngle<endAngle) {
-			int temp = startAngle;
+		if (startAngle>endAngle) {
+			double temp = startAngle;
 			startAngle = endAngle;
-			endAngle = temp;
+			endAngle = startAngle;
 		}
 		
 		// Find a visualisation for the estimated path to the goal
-		RenderableOval path = new RenderableOval((int)Math.round(centreX), (int)Math.round(centreY), (int)Math.round(radius), (int)Math.round(radius));
-		
-//		RenderableOval path = new RenderableOval((int)Math.round(centreX), (int)Math.round(centreY), (int)Math.round(radius), (int)Math.round(radius));
-
-		
+		RenderableOval path = new RenderableOval((int)Math.round(centreX), (int)Math.round(centreY), (int)Math.round(radius), (int)Math.round(radius), startAngle, (int)Math.round(Math.toDegrees(portionAngle)));
 		path.setProperties(Color.ORANGE, 1f, false);
 		point.path = path;
+		
+		double obstaclePot = getObstaclePot(pointLoc);
+		if (eveningOut == -1) {
+			eveningOut = 0;
+			while (obstaclePot!=0 && obstaclePot*100<portion) {
+				portion = portion/10;
+				eveningOut++;
+			}
+		}
+		else {
+			portion = portion/Math.pow(10, eveningOut);
+		}
 
 		//Get distances to goal
-		return getObstaclePot(pointLoc)+portion;
+		return obstaclePot+portion;
 	}
 	
 	
@@ -331,6 +355,9 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 			}
 			obsField += Math.pow(Math.E, -1 / ((sensorRange) - obsDists[i])) / (obsDists[i]);
 		}
+
+		System.out.println("Obst pot: " + Math.pow(2*radius,2)*4750*obsField / (sensorDensity*sensorRange));
+		
 		return Math.pow(2*radius,2)*4750*obsField / (sensorDensity*sensorRange);
 	}
 

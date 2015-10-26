@@ -1,8 +1,12 @@
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.geom.Line2D;
 import java.util.ArrayList;
 import java.util.Random;
+
+import javax.swing.JLabel;
 
 import renderables.*;
 import dataStructures.RRTree;
@@ -23,6 +27,9 @@ public class PotentialFields
 	private final int easyCourseId;
 	private final int medCourseId;
 	private final int hardCourseId;
+	private final int shallowCId;
+	private final int medCId;
+	private final int hardCId;
 	
 	private final int startXId;
 	private final int startYId;
@@ -30,8 +37,8 @@ public class PotentialFields
 	private final int goalYId;
 	private final int goalRadiusId;
 	private final int wheelDistId;
-	private final int startingWSId;
 	private final int maxWSId;
+	private final int minWSId;
 	private final int robotSpeedId;
 	private final int linearId;
 	private final int squaredId;
@@ -46,11 +53,11 @@ public class PotentialFields
 	private final double wheelDistance = 1;
 	private final double startWheelSpeed = 3;
 	private final double maxSpeedChange = 1.5;
-	private final double maxSpeed = 6;
+	private final double maxSpeed = 3;
 	private final double minSpeed = 0.01;
 	
 	private final int sensDensity = 160;
-	private final int sensRange = 200;
+	private final int sensRange = 120;
 	private final int robotRadius = 30;
 	private int measureMetric;
 	
@@ -83,11 +90,11 @@ public class PotentialFields
 		gui.addLabel(0, 8, "Distance betwen the wheels:");
 		wheelDistId = gui.addTextField(0, 9, null);
 		
-		gui.addLabel(2, 8, "Starting wheel speed:");
-		startingWSId = gui.addTextField(2, 9, null);
+		gui.addLabel(2, 8, "Maximum wheel speed:");
+		maxWSId = gui.addTextField(2, 9, null);
 
-		gui.addLabel(1, 8, "Max wheel speed change:");
-		maxWSId = gui.addTextField(1, 9, null);
+		gui.addLabel(1, 8, "Minimum wheel speed:");
+		minWSId = gui.addTextField(1, 9, null);
 		
 		gui.addLabel(0,-1,"Leave fields blank for random values!");
 		
@@ -96,6 +103,9 @@ public class PotentialFields
 		easyCourseId = gui.addButton(3, 1, "Easy", this, "easyCourse");
 		medCourseId = gui.addButton(3, 2, "Medium", this, "medCourse");
 		hardCourseId = gui.addButton(3, 3, "Hard", this, "hardCourse");
+		shallowCId = gui.addButton(3, 4, "Shallow C", this, "shallowCCourse");
+		medCId = gui.addButton(3, 5, "Medium C", this, "mediumCCourse");
+		hardCId = gui.addButton(3, 6, "Hard C", this, "hardCCourse");
 		
 		//Custom obstacles
 		gui.addLabel(4, 0, "Or add in your own obstacles: ");
@@ -135,6 +145,90 @@ public class PotentialFields
 		measureMetric = 3;
 	}
 	
+	// Sets a course to a shallow C obstacle
+	public void shallowCCourse() {
+		gui.setTextFieldContent(startXId, "100");
+		gui.setTextFieldContent(startYId, "250");
+		gui.setTextFieldContent(goalXId, "1000");
+		gui.setTextFieldContent(goalYId, "500");
+		
+		RenderablePolyline l = new RenderablePolyline();
+		l.addPoint(400, 450);
+		l.addPoint(450, 400);
+		l.addPoint(470, 350);
+		l.addPoint(480, 300);
+		l.addPoint(470, 250);
+		l.addPoint(450, 200);
+
+		l.setProperties(Color.DARK_GRAY, 10f);
+		obstacles.add(l);
+		gui.draw(l);
+		gui.update();
+		
+	}
+	
+	// Sets a course to a medium C obstacle
+	public void mediumCCourse() {
+		gui.setTextFieldContent(startXId, "100");
+		gui.setTextFieldContent(startYId, "250");
+		gui.setTextFieldContent(goalXId, "1000");
+		gui.setTextFieldContent(goalYId, "500");
+		
+		RenderablePolyline l = new RenderablePolyline();
+		l.addPoint(300, 450);
+		l.addPoint(350, 460);
+		l.addPoint(400, 450);
+		l.addPoint(450, 400);
+		l.addPoint(470, 350);
+		l.addPoint(480, 300);
+		l.addPoint(470, 250);
+		l.addPoint(450, 200);
+		l.addPoint(400, 175);
+		l.addPoint(375, 170);
+
+		l.setProperties(Color.DARK_GRAY, 10f);
+		obstacles.add(l);
+		gui.draw(l);
+		gui.update();
+
+	}
+	
+	
+	// Sets a course to a hard C obstacle
+	public void hardCCourse() {
+		gui.setTextFieldContent(startXId, "100");
+		gui.setTextFieldContent(startYId, "250");
+		gui.setTextFieldContent(goalXId, "1000");
+		gui.setTextFieldContent(goalYId, "500");
+		
+		
+		RenderablePolyline l = new RenderablePolyline();
+		l.addPoint(240, 400);
+		l.addPoint(270, 430);
+		l.addPoint(300, 450);
+		l.addPoint(350, 460);
+		l.addPoint(400, 450);
+		l.addPoint(450, 400);
+		l.addPoint(470, 350);
+		l.addPoint(480, 300);
+		l.addPoint(470, 250);
+		l.addPoint(450, 200);
+		l.addPoint(400, 130);
+		l.addPoint(350, 100);
+		l.addPoint(310, 80);
+		l.addPoint(290, 90);
+		l.addPoint(265, 110);
+		l.addPoint(250, 130);
+		l.addPoint(230, 160);
+
+		l.setProperties(Color.DARK_GRAY, 10f);
+		obstacles.add(l);
+		gui.draw(l);
+		gui.update();
+
+	}
+	
+	
 	/**
 	 * Action when 'clear fields' button is pressed - reset all text fields in the gui. 
 	 **/
@@ -145,8 +239,8 @@ public class PotentialFields
 		gui.setTextFieldContent(goalYId, "");
 		gui.setTextFieldContent(goalRadiusId, "");
 		gui.setTextFieldContent(wheelDistId, "");
-		gui.setTextFieldContent(startingWSId, "");
 		gui.setTextFieldContent(maxWSId, "");
+		gui.setTextFieldContent(minWSId, "");
 		gui.setTextFieldContent(robotSpeedId, "");
 	}
 	
@@ -160,7 +254,7 @@ public class PotentialFields
 		gui.setTextFieldContent(goalYId, "500");
 
 		RenderableOval r = new RenderableOval(frameLength/2, graphicsHeight/2, 150, 150);
-		r.setProperties(Color.DARK_GRAY, 1f, true);
+		r.setProperties(Color.DARK_GRAY, 5f, true);
 		obstacles.add(r);
 		gui.draw(r);
 		gui.update();
@@ -325,7 +419,8 @@ public class PotentialFields
 	 * Get the parameters from the text fields and use these to set the robot moving 
 	 **/
 	public void buttonAction() throws InterruptedException {
-		int startX, startY, goalX, goalY, radius, wheelDist, robotSpeed, wheelSpeedMaxChange, wheelSpeedStart;
+		int startX, startY, goalX, goalY, radius, wheelDist, robotSpeed;
+		double wheelSpeedMin, wheelSpeedMax;
 		Random rand = new Random();
 		String startXs = gui.getTextFieldContent(startXId);
 		String startYs = gui.getTextFieldContent(startYId);
@@ -333,8 +428,8 @@ public class PotentialFields
 		String goalYs = gui.getTextFieldContent(goalYId);
 		String radiuss = gui.getTextFieldContent(goalRadiusId);
 		String wheelDistance = gui.getTextFieldContent(wheelDistId);
-		String wheelSpeedMaxChanges = gui.getTextFieldContent(maxWSId);
-		String wheelSpeedStarts = gui.getTextFieldContent(startingWSId);
+		String minWSpeeds = gui.getTextFieldContent(minWSId);
+		String maxWSpeeds = gui.getTextFieldContent(maxWSId);
 		String robotSpeeds = gui.getTextFieldContent(robotSpeedId);
 
 		if(startXs.equals("")) startX = rand.nextInt(frameLength); 
@@ -357,23 +452,23 @@ public class PotentialFields
 		else radius = Integer.parseInt(radiuss);
 		gui.setTextFieldContent(goalRadiusId, ""+radius);
 	
-		if(wheelDistance.equals("")) wheelDist = rand.nextInt(9)+1; //Wheel radius between 1 and 10
+		if(wheelDistance.equals("")) wheelDist = 1; //Wheel distance default is 1, that's when it works the best
 		else wheelDist = Integer.parseInt(wheelDistance);
 		gui.setTextFieldContent(wheelDistId, ""+wheelDist);
 		
-		if(wheelSpeedStarts.equals("")) wheelSpeedStart = rand.nextInt(2)+1; //between 1 and 3 
-		else wheelSpeedStart = Integer.parseInt(wheelSpeedStarts);
-		gui.setTextFieldContent(startingWSId, ""+wheelSpeedStart);
+		if(minWSpeeds.equals("")) wheelSpeedMin = 1.5; //between 5 and 180 
+		else wheelSpeedMin = Double.parseDouble(minWSpeeds);
+		gui.setTextFieldContent(minWSId, ""+wheelSpeedMin);
 		
-		if(wheelSpeedMaxChanges.equals("")) wheelSpeedMaxChange = rand.nextInt(Math.floorDiv((int) maxSpeed, 2)) + 1; //between 5 and 180 
-		else wheelSpeedMaxChange = Integer.parseInt(wheelSpeedMaxChanges);
-		gui.setTextFieldContent(maxWSId, ""+wheelSpeedMaxChange);
+		if(maxWSpeeds.equals("")) wheelSpeedMax = wheelSpeedMin+1.5; //between 1 and 3 
+		else wheelSpeedMax = Double.parseDouble(maxWSpeeds);
+		gui.setTextFieldContent(maxWSId, ""+wheelSpeedMax);
 		
 		if(robotSpeeds.equals("")) robotSpeed = 40; //Default speed is 40 moves per second
 		else robotSpeed = Integer.parseInt(robotSpeeds);
 		gui.setTextFieldContent(robotSpeedId, ""+robotSpeed);
 		
-		goLittleRobot(new IntPoint(startX, startY), new IntPoint(goalX, goalY), radius, robotSpeed, wheelDist, wheelSpeedStart, wheelSpeedMaxChange);
+		goLittleRobot(new IntPoint(startX, startY), new IntPoint(goalX, goalY), radius, robotSpeed, wheelDist, wheelSpeedMax, wheelSpeedMin);
 	}
 	
 	/**
@@ -386,7 +481,7 @@ public class PotentialFields
 	 * @param robotSensorDensity The number of sensor lines the robot can use
 	 * @param robotSpeed The number of moves per second
 	 * */
-	public void goLittleRobot(IntPoint start, IntPoint goal, int goalRad, int robotSpeed, int wheelDistance, int startWS, int maxWSChange) throws InterruptedException
+	public void goLittleRobot(IntPoint start, IntPoint goal, int goalRad, int robotSpeed, int wheelDistance, double maxWheelSpeed, double minSpeedRob) throws InterruptedException
 	{
 		//Disable all buttons while robot is active
 		gui.setButtonEnabled(buttonId, false);
@@ -402,11 +497,13 @@ public class PotentialFields
 		gui.setButtonEnabled(linearId, false);
 		gui.setButtonEnabled(squaredId, false);
 		gui.setButtonEnabled(arcId, false);
+		gui.setButtonEnabled(shallowCId, false);
+		gui.setButtonEnabled(medCId, false);
+		gui.setButtonEnabled(hardCId, false);
 		
 		//Create the robot, start & end points, renderables
 		DynamicPFRobot rob = new DynamicPFRobot(start, goal, robotRadius, sensRange, 
-							  sensDensity, goalRad, obstacles, wheelDistance, startWS, maxWSChange, maxSpeed, minSpeed, wheelSize, measureMetric);
-		
+							  sensDensity, goalRad, obstacles, wheelDistance, maxWheelSpeed, minSpeedRob, wheelSize, measureMetric);
 		
 		RRTree startAndGoal = new RRTree(Color.black);
 		startAndGoal.setStartAndGoal(start, goal, goalRad);
@@ -488,6 +585,9 @@ public class PotentialFields
 		gui.setButtonEnabled(linearId, true);
 		gui.setButtonEnabled(squaredId, true);
 		gui.setButtonEnabled(arcId, true);
+		gui.setButtonEnabled(shallowCId, true);
+		gui.setButtonEnabled(medCId, true);
+		gui.setButtonEnabled(hardCId, true);
 	}
 	
 	/**
@@ -512,9 +612,10 @@ public class PotentialFields
 		for(DPFMovablePoint p :((DynamicPFRobot)rob).getDiffDrivePoints()) {
 			RenderablePolyline r = new RenderablePolyline();
 			r.addPoint(rob.getPosition().x, rob.getPosition().y);
-			r.addPoint(rob.getPosition().x+6*(int)p.location.x, rob.getPosition().y + 6*(int)p.location.y);
+			int visibilityIndex = 18;
+			r.addPoint(rob.getPosition().x+(int)Math.round(visibilityIndex*p.location.x), rob.getPosition().y + (int)Math.round(visibilityIndex*p.location.y));
 			r.setProperties(Color.BLUE, 3f);
-			RenderablePoint pp = new RenderablePoint(rob.getPosition().x+6*(int)p.location.x, rob.getPosition().y + 6*(int)p.location.y);
+			RenderablePoint pp = new RenderablePoint(rob.getPosition().x+(int)Math.round(visibilityIndex*p.location.x), rob.getPosition().y + (int)Math.round(visibilityIndex*p.location.y));
 			pp.setProperties(Color.BLUE, 6f);
 //			gui.draw(r);
 			gui.draw(pp);
