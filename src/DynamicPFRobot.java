@@ -10,10 +10,9 @@ import renderables.Renderable;
 import renderables.RenderableOval;
 import renderables.RenderablePolyline;
 
+// A class for modelling a robot that would incorporate the mechanics behind potential fields
 public class DynamicPFRobot extends PotentialFieldsRobot {
 
-
-	private final double wheelSize;
 	private final double wheelDistance;
 	private double leftWheelSpeed;
 	private double rightWheelSpeed;
@@ -21,48 +20,43 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 	private final double maxSpeed;
 	private final double minSpeed;
 	private final int numberOfSamples = 7;
+	private final int wheelSize;
+	private final int measureMetric;
 	
+	// Path of estimated movement
 	Renderable path;
 
-	//private double heading;
-
+	// Initialising robot
 	public DynamicPFRobot(IntPoint startingLocation, IntPoint goalLocation, int radius,
-			int sensorRange, int sensorDensity, int goalRadius, List<Renderable> obstacles, double wheelSize, 
-			double wheelDistance, double startingSpeeds, double maxSpeedChange, double maxSpeed, double minSpeed) {
+			int sensorRange, int sensorDensity, int goalRadius, List<Renderable> obstacles, double wheelDist, double startingSpeeds, double maxSpeedChange, double maxSpeed, double minSpeed, int wheelSize, int measureMetric) {
 		super(startingLocation, goalLocation, radius, sensorRange, sensorDensity, goalRadius, obstacles);
-		this.wheelSize = wheelSize;
-		this.wheelDistance = wheelDistance;
+		this.wheelDistance = wheelDist;
 		this.leftWheelSpeed = startingSpeeds;
 		this.rightWheelSpeed = startingSpeeds;
 		this.maxSpeedChange = maxSpeedChange;
 		this.maxSpeed = maxSpeed;
 		this.minSpeed = minSpeed;
+		this.wheelSize = wheelSize;
+		this.measureMetric = measureMetric;
 	}	
 
-	// Chooses a point from its sample range, & then chooses a diff drive point nearest to it
+	// Chooses a point from its sample range, and then chooses a point reachable by differential drive that is nearest to the chosen sample point
 	public boolean move() {
-
-		System.out.println("Facing: " + Math.toDegrees(heading));
 
 		//Choose a subgoal
 		IntPoint moveTo = evaluateSamplePoints();
 
-		System.out.println("Current loc: " + coords.x + " " + coords.y);
-		System.out.println("S point result: " + moveTo.x + " " + moveTo.y);
-
 		// Choose a point accessible by differential drive that is closest to the subgoal
 		DPFMovablePoint chosenMove = evaluateDiffSamplePoints(moveTo);
 
-		moveTowards(chosenMove); //Make the move
+		// Make a move
+		moveTowards(chosenMove);
 		return true;
 	}
 
 	// Makes a move towards the chosen point - updates the necessary parameters
 	protected void moveTowards(DPFMovablePoint newPoint) {
 
-		System.out.println("Move x diff: " + newPoint.location.x);
-		System.out.println("Move y diff: " + newPoint.location.y);
-		
 		// Set the estimated path image
 		this.path = newPoint.path;
 
@@ -72,17 +66,15 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		robotPoint.x = coords.x;
 		robotPoint.y = coords.y;
 
-		// Update whell speeds
+		// Update wheel speeds
 		this.rightWheelSpeed = newPoint.rightWSpeed;
 		this.leftWheelSpeed = newPoint.leftWSpeed;
-
-		System.out.println("RW: " + rightWheelSpeed);
-		System.out.println("LW: " + leftWheelSpeed);
 
 		// Update the heading
 		this.heading = newPoint.heading;
 	}
 
+	
 	// Calculates the location and heading for the point where the robot will end up if the given wheel speeds are used.
 	// Formulae from the source at http://chess.eecs.berkeley.edu/eecs149/documentation/differentialDrive.pdf (accessed on 24.10.2015) are used,
 	// all credit goes to Dudek and Jenkin (Computational Principles of Mobile Robotics)
@@ -104,7 +96,7 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		double newX = distToICC*(Math.sin(heading)*Math.cos(rateOfRotRadians)+Math.sin(rateOfRotRadians)*Math.cos(heading) - Math.sin(heading));
 		double newY = distToICC*(Math.sin(heading)*Math.sin(rateOfRotRadians)-Math.cos(rateOfRotRadians)*Math.cos(heading) + Math.cos(heading));
 		double newAngle = mod(heading + rateOfRotRadians, 2*Math.PI);
-
+		
 		// If the changes are too small, increase them up till they are at least > 0
 		while (newX != 0 && Math.abs(newX) < 1  && newY != 0 && Math.abs(newY) < 1) {
 			newX*=10;
@@ -117,8 +109,8 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 			newY/=10;
 		}
 
-		// Return the results in the form of DPFMovablePoint, with wheel speeds added later (thus they are passed as -1 for now)
-		DPFMovablePoint results = new DPFMovablePoint(newX, newY, newAngle, -1, -1);
+		// Return the results in the form of DPFMovablePoint
+		DPFMovablePoint results = new DPFMovablePoint(newX, newY, newAngle, rightWSpeed, leftWSpeed);
 		return results;
 	}
 
@@ -126,6 +118,7 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 	// Returns a list of points accessible using differential drive mechanics
 	public List<DPFMovablePoint> getDiffDrivePoints() {
 
+		// Points stored as DPFMovablePoint because additional information apart from the coordinates (wheel speeds, heading) is necessary
 		List<DPFMovablePoint> moveablePoints = new ArrayList<DPFMovablePoint>();
 
 		// Can change the speeds (and thus rotate) only within a particular range
@@ -135,10 +128,12 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		for (int i=0; i<=numberOfSamples; i++) {
 			double rightSpeed = rightWheelSpeed + speedChangeOption*i - maxSpeedChange/2;
 
+			// If speed change smaller than the allowed one, don't look at this option
 			if (rightSpeed<minSpeed) {
 				continue;
 			}
 
+			// If speed change bigger - break, as the rest of them will be even bigger
 			if (rightSpeed>maxSpeed) {
 				break;
 			}
@@ -159,46 +154,72 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 				if (p2==null) {
 					continue;
 				}
-				p2.rightWSpeed = rightSpeed;
-				p2.leftWSpeed = leftSpeed;
+				
 				moveablePoints.add(p2);
 			}
 		}
-
-		//if (moveablePoints.isEmpty())
-
-		//TODO check for crash
-
 		return moveablePoints;
 	}
 
 
-	private DPFMovablePoint evaluateDiffSamplePoints( IntPoint goal) {
+	// Evaluates points that are reachable by diff drive in a relation to the chosen subgoal, and returns the one with the lowest potential
+	private DPFMovablePoint evaluateDiffSamplePoints(IntPoint goal) {
 
+		// Obtains points that we can get to 
 		List<DPFMovablePoint>moves = getDiffDrivePoints();
 
+		// Find the one with the smallest potential by looping through all of them
 		DPFMovablePoint bestPoint = moves.get(0);
-		//		double bestScore = evaluate(bestPoint.location, goal);
-		double bestScore = getSquareGoalEsitamte(bestPoint, goal);
-
-		for(DPFMovablePoint currentPoint: moves) {
-			double currentScore = getSquareGoalEsitamte(currentPoint, goal);
+		
+		double bestScore;
+		// Different metrics can be chosen for evaluation by the user
+		switch (measureMetric) {
+		case 1:
+			bestScore = getLinearGoalEstimate(bestPoint, goal);
+			break;
+		case 2:
+			bestScore = getSquareGoalEsitamte(bestPoint, goal);
+			break;
+		case 3:
+			bestScore = getArcGoalEstimate(bestPoint, goal);
+			break;
+		default:
+			bestScore = getSquareGoalEsitamte(bestPoint, goal);
+			break;
+		}
+		
+		for(DPFMovablePoint currentPoint: moves) {			
+			double currentScore = 0;
+			switch (measureMetric) {
+			case 1:
+				currentScore = getLinearGoalEstimate(currentPoint, goal);
+				break;
+			case 2:
+				currentScore = getSquareGoalEsitamte(currentPoint, goal);
+				break;
+			case 3:
+				currentScore = getArcGoalEstimate(currentPoint, goal);
+				break;
+			default:
+				currentScore = getSquareGoalEsitamte(currentPoint, goal);
+				break;
+			}
 
 			if (currentScore < bestScore) {
 				bestPoint = currentPoint;
 				bestScore = currentScore;
 			}
-			
 		}
 
-		return bestPoint; //Return the lowest valued move
+		// Return the lowest valued move
+		return bestPoint;
 
 	}
 
-
-
 	//Estimates the distance to the goal using Euclidean straight line
 	private double getLinearGoalEstimate(DPFMovablePoint point, IntPoint goal) {
+				
+		// Calculate the straight line distance
 		DoublePoint move = new DoublePoint(coords.x+point.location.x, coords.y+point.location.y);
 		double goalDist = (distance(move, goal));
 		
@@ -214,6 +235,8 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 
 	//Estimates the distance to the goal using Euclidean squared distance
 	private double getSquareGoalEsitamte(DPFMovablePoint point, IntPoint goal) {
+				
+		// Calculate the straight line distance squared
 		DoublePoint move = new DoublePoint(coords.x+point.location.x, coords.y+point.location.y);
 		double goalDist = Math.pow((distance(move, goal)), 2);
 		
@@ -227,21 +250,21 @@ public class DynamicPFRobot extends PotentialFieldsRobot {
 		return getObstaclePot(move) + goalDist;
 	}
 
+	// Calculates the distance using Pitaghor's theorem
 	protected static double distance(DoublePoint a, IntPoint b) {
 		return Math.sqrt(Math.pow((a.x-b.x), 2) + Math.pow((a.y-b.y), 2));
 	}
 
-	//Estimates the distance to the goal using Euclidean squared distance
-	// TODO Take the heading of the double point?
+	//Estimates the distance by constructing an arch using three points - goal, chosen point and a point where the chosen point is heading towards
 	private double getArcGoalEstimate(DPFMovablePoint point, IntPoint goal) {
-		
+				
 		goal = this.goal;
 		
 		DoublePoint pointLoc = new DoublePoint(coords.x + point.location.x, coords.y + point.location.y);
 
-		double nextByHeadingX = pointLoc.x + Math.cos(point.heading)*15;
-		double nextByHeadingY = pointLoc.y + Math.sin(point.heading)*15;
-
+		double nextByHeadingX = pointLoc.x + Math.cos(point.heading)*2;
+		double nextByHeadingY = pointLoc.y + Math.sin(point.heading)*2;
+		
 		double firstSlope = (goal.y - nextByHeadingY)/(goal.x - nextByHeadingX);
 		double secondSlope = (nextByHeadingY - pointLoc.y)/(nextByHeadingX - pointLoc.x);
 

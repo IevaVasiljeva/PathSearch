@@ -29,21 +29,30 @@ public class PotentialFields
 	private final int goalXId;
 	private final int goalYId;
 	private final int goalRadiusId;
-	private final int robotRadiusId;
-	private final int robotSensorRangeId;
-	private final int robotSensorDensityId;
+	private final int wheelDistId;
+	private final int startingWSId;
+	private final int maxWSId;
 	private final int robotSpeedId;
+	private final int linearId;
+	private final int squaredId;
+	private final int arcId;
 	
 	private final int frameLength = 1200;
 	private final int frameHeight = 900;
+
 	private final int graphicsHeight = 700;
 	
-	private final double wheelSize = 10;
+	private final int wheelSize = 10;
 	private final double wheelDistance = 1;
 	private final double startWheelSpeed = 3;
 	private final double maxSpeedChange = 1.5;
 	private final double maxSpeed = 6;
 	private final double minSpeed = 0.01;
+	
+	private final int sensDensity = 160;
+	private final int sensRange = 200;
+	private final int robotRadius = 30;
+	private int measureMetric;
 	
 	
 	private ArrayList<Renderable>obstacles;
@@ -68,17 +77,17 @@ public class PotentialFields
 		gui.addLabel(0, 4, "Goal Radius:");
 		goalRadiusId = gui.addTextField(0, 5, null);
 		
-		gui.addLabel(0, 6, "Robot Radius:");
-		robotRadiusId = gui.addTextField(0, 7, null);
+		gui.addLabel(0, 6, "Robot Speed (moves/second):");
+		robotSpeedId = gui.addTextField(0, 7, null);
 		
-		gui.addLabel(1, 6, "Robot Sensor Range:");
-		robotSensorRangeId = gui.addTextField(1, 7, null);
+		gui.addLabel(0, 8, "Distance betwen the wheels:");
+		wheelDistId = gui.addTextField(0, 9, null);
 		
-		gui.addLabel(1, 8, "Robot Sensor Density:");
-		robotSensorDensityId = gui.addTextField(1, 9, null);
-		
-		gui.addLabel(0, 8, "Robot Speed (moves/second):");
-		robotSpeedId = gui.addTextField(0, 9, null);
+		gui.addLabel(2, 8, "Starting wheel speed:");
+		startingWSId = gui.addTextField(2, 9, null);
+
+		gui.addLabel(1, 8, "Max wheel speed change:");
+		maxWSId = gui.addTextField(1, 9, null);
 		
 		gui.addLabel(0,-1,"Leave fields blank for random values!");
 		
@@ -96,6 +105,12 @@ public class PotentialFields
 		squareLId = gui.addButton(4, 4, "Square (L)", this, "genSquareL");
 		randomLineId = gui.addButton(4, 5, "Line", this, "genLine");
 		clearObsId = gui.addButton(4, 6, "Clear Obstacles", this, "clearObs");
+		
+		// Metric measurement
+		gui.addLabel(5, 0, "Choose a metric to measure the distance by: ");
+		linearId = gui.addButton(5, 1, "linear", this, "setToLin");
+		squaredId = gui.addButton(5, 2, "suqared", this, "setToSquare");
+		arcId = gui.addButton(5, 3, "arc", this, "setToArc");
 				
 		gui.addButton(5, 10, "Quit", this, "quit");
 		
@@ -108,6 +123,18 @@ public class PotentialFields
 		System.exit(0);
 	}
 	
+	public void setToLin() {
+		measureMetric = 1;
+	}
+	
+	public void setToSquare() {
+		measureMetric = 2;
+	}
+	
+	public void setToArc() {
+		measureMetric = 3;
+	}
+	
 	/**
 	 * Action when 'clear fields' button is pressed - reset all text fields in the gui. 
 	 **/
@@ -117,9 +144,9 @@ public class PotentialFields
 		gui.setTextFieldContent(goalXId, "");
 		gui.setTextFieldContent(goalYId, "");
 		gui.setTextFieldContent(goalRadiusId, "");
-		gui.setTextFieldContent(robotRadiusId, "");
-		gui.setTextFieldContent(robotSensorRangeId, "");
-		gui.setTextFieldContent(robotSensorDensityId, "");
+		gui.setTextFieldContent(wheelDistId, "");
+		gui.setTextFieldContent(startingWSId, "");
+		gui.setTextFieldContent(maxWSId, "");
 		gui.setTextFieldContent(robotSpeedId, "");
 	}
 	
@@ -298,17 +325,16 @@ public class PotentialFields
 	 * Get the parameters from the text fields and use these to set the robot moving 
 	 **/
 	public void buttonAction() throws InterruptedException {
-		int startX, startY, goalX, goalY, radius, robotRadius, robotSensorRange, 
-			robotSensorDensity, robotSpeed;
+		int startX, startY, goalX, goalY, radius, wheelDist, robotSpeed, wheelSpeedMaxChange, wheelSpeedStart;
 		Random rand = new Random();
 		String startXs = gui.getTextFieldContent(startXId);
 		String startYs = gui.getTextFieldContent(startYId);
 		String goalXs = gui.getTextFieldContent(goalXId);
 		String goalYs = gui.getTextFieldContent(goalYId);
 		String radiuss = gui.getTextFieldContent(goalRadiusId);
-		String robotRadiuss = gui.getTextFieldContent(robotRadiusId);
-		String robotSensorRanges = gui.getTextFieldContent(robotSensorRangeId);
-		String robotSensorDensitys = gui.getTextFieldContent(robotSensorDensityId);
+		String wheelDistance = gui.getTextFieldContent(wheelDistId);
+		String wheelSpeedMaxChanges = gui.getTextFieldContent(maxWSId);
+		String wheelSpeedStarts = gui.getTextFieldContent(startingWSId);
 		String robotSpeeds = gui.getTextFieldContent(robotSpeedId);
 
 		if(startXs.equals("")) startX = rand.nextInt(frameLength); 
@@ -331,24 +357,23 @@ public class PotentialFields
 		else radius = Integer.parseInt(radiuss);
 		gui.setTextFieldContent(goalRadiusId, ""+radius);
 	
-		if(robotRadiuss.equals("")) robotRadius = rand.nextInt(20)+20; //Robot radius between 20 and 40
-		else robotRadius = Integer.parseInt(robotRadiuss);
-		gui.setTextFieldContent(robotRadiusId, ""+robotRadius);
+		if(wheelDistance.equals("")) wheelDist = rand.nextInt(9)+1; //Wheel radius between 1 and 10
+		else wheelDist = Integer.parseInt(wheelDistance);
+		gui.setTextFieldContent(wheelDistId, ""+wheelDist);
 		
-		if(robotSensorRanges.equals("")) robotSensorRange = rand.nextInt(300)+100; //between 50 and 200 
-		else robotSensorRange = Integer.parseInt(robotSensorRanges);
-		gui.setTextFieldContent(robotSensorRangeId, ""+robotSensorRange);
+		if(wheelSpeedStarts.equals("")) wheelSpeedStart = rand.nextInt(2)+1; //between 1 and 3 
+		else wheelSpeedStart = Integer.parseInt(wheelSpeedStarts);
+		gui.setTextFieldContent(startingWSId, ""+wheelSpeedStart);
 		
-		if(robotSensorDensitys.equals("")) robotSensorDensity = rand.nextInt(175)+5; //between 5 and 180 
-		else robotSensorDensity = Integer.parseInt(robotSensorDensitys);
-		gui.setTextFieldContent(robotSensorDensityId, ""+robotSensorDensity);
+		if(wheelSpeedMaxChanges.equals("")) wheelSpeedMaxChange = rand.nextInt(Math.floorDiv((int) maxSpeed, 2)) + 1; //between 5 and 180 
+		else wheelSpeedMaxChange = Integer.parseInt(wheelSpeedMaxChanges);
+		gui.setTextFieldContent(maxWSId, ""+wheelSpeedMaxChange);
 		
 		if(robotSpeeds.equals("")) robotSpeed = 40; //Default speed is 40 moves per second
 		else robotSpeed = Integer.parseInt(robotSpeeds);
 		gui.setTextFieldContent(robotSpeedId, ""+robotSpeed);
 		
-		goLittleRobot(new IntPoint(startX, startY), new IntPoint(goalX, goalY), radius, 
-				      robotRadius, robotSensorRange, robotSensorDensity, robotSpeed);
+		goLittleRobot(new IntPoint(startX, startY), new IntPoint(goalX, goalY), radius, robotSpeed, wheelDist, wheelSpeedStart, wheelSpeedMaxChange);
 	}
 	
 	/**
@@ -361,9 +386,7 @@ public class PotentialFields
 	 * @param robotSensorDensity The number of sensor lines the robot can use
 	 * @param robotSpeed The number of moves per second
 	 * */
-	public void goLittleRobot(IntPoint start, IntPoint goal, int goalRad, 
-			                  int robotRadius, int robotSensorRange, int robotSensorDensity,
-			                  int robotSpeed) throws InterruptedException
+	public void goLittleRobot(IntPoint start, IntPoint goal, int goalRad, int robotSpeed, int wheelDistance, int startWS, int maxWSChange) throws InterruptedException
 	{
 		//Disable all buttons while robot is active
 		gui.setButtonEnabled(buttonId, false);
@@ -376,10 +399,13 @@ public class PotentialFields
 		gui.setButtonEnabled(easyCourseId, false);
 		gui.setButtonEnabled(medCourseId, false);
 		gui.setButtonEnabled(hardCourseId, false);
+		gui.setButtonEnabled(linearId, false);
+		gui.setButtonEnabled(squaredId, false);
+		gui.setButtonEnabled(arcId, false);
 		
 		//Create the robot, start & end points, renderables
-		DynamicPFRobot rob = new DynamicPFRobot(start, goal, robotRadius, robotSensorRange, 
-							  robotSensorDensity, goalRad, obstacles, wheelSize, wheelDistance, startWheelSpeed, maxSpeedChange, maxSpeed, minSpeed);
+		DynamicPFRobot rob = new DynamicPFRobot(start, goal, robotRadius, sensRange, 
+							  sensDensity, goalRad, obstacles, wheelDistance, startWS, maxWSChange, maxSpeed, minSpeed, wheelSize, measureMetric);
 		
 		
 		RRTree startAndGoal = new RRTree(Color.black);
@@ -459,6 +485,9 @@ public class PotentialFields
 		gui.setButtonEnabled(easyCourseId, true);
 		gui.setButtonEnabled(medCourseId, true);
 		gui.setButtonEnabled(hardCourseId, true);
+		gui.setButtonEnabled(linearId, true);
+		gui.setButtonEnabled(squaredId, true);
+		gui.setButtonEnabled(arcId, true);
 	}
 	
 	/**
